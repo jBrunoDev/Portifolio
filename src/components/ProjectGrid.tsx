@@ -1,4 +1,5 @@
 import { useRef, type MouseEvent, type ReactNode, type RefObject } from "react"
+import { capture } from "../lib/analytics"
 import { site } from "../data/site"
 
 export type Project = (typeof site.projects)[number]
@@ -93,10 +94,12 @@ function TiltCard({
   children,
   className,
   href,
+  onOpen,
 }: {
   children: ReactNode
   className: string
   href?: string
+  onOpen?: () => void
 }) {
   const ref = useRef<HTMLElement>(null)
 
@@ -130,6 +133,7 @@ function TiltCard({
         rel="noreferrer"
         onMouseMove={onMove}
         onMouseLeave={onLeave}
+        onClick={() => onOpen?.()}
       >
         {children}
       </a>
@@ -137,19 +141,42 @@ function TiltCard({
   }
 
   return (
-    <article ref={ref} className={className} onMouseMove={onMove} onMouseLeave={onLeave}>
+    <article
+      ref={ref}
+      className={className}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      onClick={() => onOpen?.()}
+    >
       {children}
     </article>
   )
 }
 
-export function ProjectGrid({ projects }: { projects: readonly Project[] }) {
+export function ProjectGrid({
+  projects,
+  source = "home",
+}: {
+  projects: readonly Project[]
+  source?: "home" | "all"
+}) {
   return (
     <div className="project-grid">
       {projects.map((project) => {
         const href = projectHref(project)
         return (
-          <TiltCard key={project.name} className="project-card" href={href}>
+          <TiltCard
+            key={project.name}
+            className="project-card"
+            href={href}
+            onOpen={() =>
+              capture("project_clicked", {
+                name: project.name,
+                href: href ?? null,
+                source,
+              })
+            }
+          >
             <span className="project-icon">
               <Icon type={project.icon} />
             </span>

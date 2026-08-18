@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 .vercel
 *.bak.glb
 public/video/screem_.src.mp4

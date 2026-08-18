@@ -2,6 +2,7 @@ import { type CSSProperties } from "react"
 import { ProjectGrid } from "./ProjectGrid"
 import { site } from "../data/site"
 import portrait from "../assets/bruno_lowPolly.webp"
+import { capture } from "../lib/analytics"
 
 const FEATURED_COUNT = 3
 
@@ -80,17 +81,37 @@ export function Sections({ onSeeAll }: { onSeeAll: () => void }) {
           <p className="band-kicker">05 — Contact</p>
           <h2>Vamos criar algo juntos?</h2>
           <p>Me chama no e-mail, no WhatsApp ou nas redes. Respondo rápido.</p>
-          <a className="cta" href={`mailto:${site.person.email}`}>
+          <a
+            className="cta"
+            href={`mailto:${site.person.email}`}
+            onClick={() => capture("cta_clicked", { cta: "email" })}
+          >
             Enviar e-mail
           </a>
         </div>
         <div className="contact-panel">
-          <a href={`mailto:${site.person.email}`}>{site.person.email}</a>
-          <a href={site.person.phoneHref}>{site.person.phone}</a>
+          <a
+            href={`mailto:${site.person.email}`}
+            onClick={() => capture("cta_clicked", { cta: "email" })}
+          >
+            {site.person.email}
+          </a>
+          <a
+            href={site.person.phoneHref}
+            onClick={() => capture("cta_clicked", { cta: "phone" })}
+          >
+            {site.person.phone}
+          </a>
           <span>{site.person.location}</span>
           <div className="socials">
             {site.socials.map((social) => (
-              <a key={social.label} href={social.href} target="_blank" rel="noreferrer">
+              <a
+                key={social.label}
+                href={social.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => capture("cta_clicked", { cta: social.label.toLowerCase() })}
+              >
                 {social.label}
               </a>
             ))}

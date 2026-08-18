@@ -10,7 +10,7 @@ export function ProjectsPage({ onBack }: { onBack: () => void }) {
       <p className="band-kicker">02 — Projects</p>
       <h2>Todos os projetos</h2>
       <p className="projects-lead">Sites, posts e estudos — do produto ao experimento.</p>
-      <ProjectGrid projects={site.projects} />
+      <ProjectGrid projects={site.projects} source="all" />
     </section>
   )
 }

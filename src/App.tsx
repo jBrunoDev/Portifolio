@@ -3,6 +3,7 @@ import { LabVolume } from "./components/LabVolume"
 import { ProjectsPage } from "./components/ProjectsPage"
 import { Sections } from "./components/Sections"
 import { site } from "./data/site"
+import { capture, capturePageview } from "./lib/analytics"
 import "./index.css"
 
 const LabCanvas = lazy(async () => {
@@ -14,6 +15,43 @@ const PROJECTS_PATH = "/projetos"
 
 function currentPath() {
   return window.location.pathname.replace(/\/+$/, "") || "/"
+}
+
+function HeroTimeTracker() {
+  const entered = useRef<number | null>(null)
+
+  useEffect(() => {
+    const hero = document.getElementById("hero")
+    if (!hero) return
+
+    const flush = () => {
+      if (entered.current == null) return
+      const seconds = Math.round((performance.now() - entered.current) / 1000)
+      entered.current = null
+      if (seconds > 0) capture("hero_time", { seconds })
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (entered.current == null) entered.current = performance.now()
+          return
+        }
+        flush()
+      },
+      { threshold: 0.35 },
+    )
+    observer.observe(hero)
+    const onHide = () => flush()
+    window.addEventListener("pagehide", onHide)
+    return () => {
+      flush()
+      observer.disconnect()
+      window.removeEventListener("pagehide", onHide)
+    }
+  }, [])
+
+  return null
 }
 
 export default function App() {
@@ -33,6 +71,10 @@ export default function App() {
     const timer = window.setTimeout(boot, 50)
     return () => window.clearTimeout(timer)
   }, [isProjectsPage])
+
+  useEffect(() => {
+    capturePageview(path)
+  }, [path])
 
   useEffect(() => {
     const onPop = () => setPath(currentPath())
@@ -93,6 +135,7 @@ export default function App() {
   }
 
   const enterLab = () => {
+    capture("cta_clicked", { cta: "enter_lab" })
     if (isProjectsPage) {
       go("/")
       window.scrollTo(0, 0)
@@ -135,6 +178,7 @@ export default function App() {
           </header>
 
           <section className="hero" id="hero">
+            <HeroTimeTracker />
             {bootLab ? (
               <Suspense
                 fallback={
