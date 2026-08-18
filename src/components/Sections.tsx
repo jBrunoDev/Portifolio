@@ -1,7 +1,7 @@
 import { type CSSProperties } from "react"
 import { ProjectGrid } from "./ProjectGrid"
 import { site } from "../data/site"
-import portrait from "../assets/bruno_lowPolly.png"
+import portrait from "../assets/bruno_lowPolly.webp"
 
 const FEATURED_COUNT = 3
 
@@ -22,7 +22,7 @@ export function Sections({ onSeeAll }: { onSeeAll: () => void }) {
           <p>{site.person.bio}</p>
         </div>
         <figure className="portrait">
-          <img src={portrait} alt={site.person.name} />
+          <img src={portrait} alt={site.person.name} loading="lazy" decoding="async" />
           <figcaption>
             <strong>{site.person.name}</strong>
             <span>{site.person.role}</span>

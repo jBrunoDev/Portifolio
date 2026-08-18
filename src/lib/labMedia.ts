@@ -1,5 +1,5 @@
-const SCREEN_VIDEO = "/video/screem_.mp4?v=5"
-const LAB_AUDIO = "/audio/lab-instrumental.mp3"
+const SCREEN_VIDEO = "/video/screem_opt.mp4?v=1"
+const LAB_AUDIO = "/audio/lab-instrumental.opt.mp3"
 
 export function getLabScreenVideo() {
   const existing = document.getElementById("lab-screen-video")
@@ -20,7 +20,7 @@ export function getLabScreenVideo() {
   video.loop = true
   video.playsInline = true
   video.autoplay = true
-  video.preload = "auto"
+  video.preload = "metadata"
   video.setAttribute("muted", "")
   video.setAttribute("playsinline", "")
   video.setAttribute("webkit-playsinline", "")

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 .vercel
+*.bak.glb
+public/video/screem_.src.mp4
+public/video/screem_.mp4
+public/video/lab-screen.mp4
+public/audio/lab-instrumental.mp3
 
 # Editor directories and files
 .vscode/*

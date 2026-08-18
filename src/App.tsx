@@ -19,8 +19,20 @@ function currentPath() {
 export default function App() {
   const [labMode, setLabMode] = useState(false)
   const [path, setPath] = useState(currentPath)
+  const [bootLab, setBootLab] = useState(false)
   const pendingScroll = useRef<string | null>(null)
   const isProjectsPage = path === PROJECTS_PATH
+
+  useEffect(() => {
+    if (isProjectsPage) return
+    const boot = () => setBootLab(true)
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(boot, { timeout: 200 })
+      return () => cancelIdleCallback(id)
+    }
+    const timer = window.setTimeout(boot, 50)
+    return () => window.clearTimeout(timer)
+  }, [isProjectsPage])
 
   useEffect(() => {
     const onPop = () => setPath(currentPath())
@@ -118,13 +130,35 @@ export default function App() {
           </header>
 
           <section className="hero" id="hero">
-            <Suspense fallback={<div className="hero-canvas lab-canvas-fallback" />}>
-              <LabCanvas
-                labMode={labMode}
-                onPoster={() => jump("about")}
-                onMonitor={() => jump("projects")}
-              />
-            </Suspense>
+            {bootLab ? (
+              <Suspense
+                fallback={
+                  <div className="hero-canvas lab-canvas-fallback">
+                    <div className="lab-loading">
+                      <span>Preparando o lab</span>
+                      <span className="lab-loading-bar" aria-hidden>
+                        <span style={{ width: "8%" }} />
+                      </span>
+                    </div>
+                  </div>
+                }
+              >
+                <LabCanvas
+                  labMode={labMode}
+                  onPoster={() => jump("about")}
+                  onMonitor={() => jump("projects")}
+                />
+              </Suspense>
+            ) : (
+              <div className="hero-canvas lab-canvas-fallback">
+                <div className="lab-loading">
+                  <span>Preparando o lab</span>
+                  <span className="lab-loading-bar" aria-hidden>
+                    <span style={{ width: "8%" }} />
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="hero-overlay">
               <div className="hero-copy">
                 <div className="hero-kicker">

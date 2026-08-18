@@ -8,7 +8,7 @@ import { getLabAudio, getLabScreenVideo } from "../lib/labMedia"
 const DRACO_PATH = "/draco/"
 useGLTF.setDecoderPath(DRACO_PATH)
 
-const MODEL = "/models/lab.glb?v=19"
+const MODEL = "/models/lab.glb?v=20"
 const AUDIO_START_TIME = 468 / 60 - 5
 const MONITOR = "Cube.002"
 
@@ -87,16 +87,19 @@ function MonitorVideo({ root }: { root: THREE.Object3D }) {
   const mapRef = useRef<THREE.VideoTexture | null>(null)
 
   useEffect(() => {
-    const video = getLabScreenVideo()
     let cancelled = false
+    let video: HTMLVideoElement | null = null
     let map: THREE.VideoTexture | null = null
     let screenMat: THREE.MeshBasicMaterial | null = null
     const originals: Array<{ mesh: THREE.Mesh; material: THREE.Material | THREE.Material[] }> = []
     const screenRoot = root.getObjectByName(MONITOR)
     const originalZ = screenRoot?.position.z
+    let poll = 0
+    let idle = 0
+    let timer = 0
 
     const apply = () => {
-      if (cancelled || map || video.videoWidth < 2) return
+      if (cancelled || map || !video || video.videoWidth < 2) return
 
       map = new THREE.VideoTexture(video)
       map.colorSpace = gl.outputColorSpace
@@ -136,21 +139,33 @@ function MonitorVideo({ root }: { root: THREE.Object3D }) {
       void video.play().catch(() => undefined)
     }
 
-    video.addEventListener("loadedmetadata", apply)
-    video.addEventListener("loadeddata", apply)
-    video.addEventListener("canplay", apply)
-    video.addEventListener("playing", apply)
-    apply()
-    const poll = window.setInterval(apply, 250)
-    void video.play().catch(() => undefined)
+    const start = () => {
+      if (cancelled) return
+      video = getLabScreenVideo()
+      video.addEventListener("loadedmetadata", apply)
+      video.addEventListener("loadeddata", apply)
+      video.addEventListener("canplay", apply)
+      video.addEventListener("playing", apply)
+      apply()
+      poll = window.setInterval(apply, 250)
+      void video.play().catch(() => undefined)
+    }
+
+    if (typeof requestIdleCallback === "function") {
+      idle = requestIdleCallback(start, { timeout: 1800 })
+    } else {
+      timer = window.setTimeout(start, 400)
+    }
 
     return () => {
       cancelled = true
       window.clearInterval(poll)
-      video.removeEventListener("loadedmetadata", apply)
-      video.removeEventListener("loadeddata", apply)
-      video.removeEventListener("canplay", apply)
-      video.removeEventListener("playing", apply)
+      window.clearTimeout(timer)
+      if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle)
+      video?.removeEventListener("loadedmetadata", apply)
+      video?.removeEventListener("loadeddata", apply)
+      video?.removeEventListener("canplay", apply)
+      video?.removeEventListener("playing", apply)
       if (screenRoot && originalZ != null) screenRoot.position.z = originalZ
       for (const { mesh, material } of originals) {
         mesh.material = material
@@ -316,19 +331,20 @@ export function LabScene({ labMode, onPoster, onMonitor }: Props) {
       if (obj instanceof THREE.Mesh) {
         obj.castShadow = false
         obj.receiveShadow = false
-        obj.frustumCulled = false
         const geom = obj.geometry
-        if (geom && geom.boundingSphere === null) geom.computeBoundingSphere()
+        if (geom) {
+          if (geom.boundingSphere === null) geom.computeBoundingSphere()
+          if (geom.boundingBox === null) geom.computeBoundingBox()
+        }
         const matName = Array.isArray(obj.material) ? obj.material[0]?.name : obj.material?.name
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
-        if (
+        const keepAlive =
+          obj instanceof THREE.SkinnedMesh ||
           obj.name === "Bruno" ||
           obj.name === PENDANT ||
           obj.name === MONITOR ||
           obj.name === "CarpetShag"
-        ) {
-          obj.frustumCulled = false
-        }
+        obj.frustumCulled = !keepAlive
 
         if (obj.name === PENDANT || obj.parent?.name === PENDANT) {
           for (const mat of mats) {
