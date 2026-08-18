@@ -41,14 +41,16 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (isProjectsPage) return
+    if (isProjectsPage || labMode) return
     const id = pendingScroll.current
     if (!id) return
     pendingScroll.current = null
     const node = document.getElementById(id)
-    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" })
-    else window.scrollTo(0, 0)
-  }, [path, isProjectsPage])
+    requestAnimationFrame(() => {
+      if (node) node.scrollIntoView({ behavior: "smooth", block: "start" })
+      else window.scrollTo(0, 0)
+    })
+  }, [path, isProjectsPage, labMode])
 
   useEffect(() => {
     document.body.style.overflow = labMode ? "hidden" : ""
@@ -70,15 +72,18 @@ export default function App() {
   }
 
   const jump = (id: string) => {
-    setLabMode(false)
+    pendingScroll.current = id
+    if (labMode) {
+      setLabMode(false)
+      if (isProjectsPage) go("/")
+      return
+    }
     if (isProjectsPage) {
-      pendingScroll.current = id
       go("/")
       return
     }
-    requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
-    })
+    pendingScroll.current = null
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   const openProjectsPage = () => {

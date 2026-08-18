@@ -55,6 +55,13 @@ a {
   inset: 0;
 }
 
+.hero-canvas canvas {
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+  pointer-events: auto;
+}
+
 .lab-loading {
   position: absolute;
   inset: 0;
@@ -120,6 +127,7 @@ a {
 .app.is-lab .hero-overlay {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .hero-copy {

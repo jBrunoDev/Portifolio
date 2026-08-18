@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls, useAnimations, useCursor, useGLTF } from "@react-three/drei"
+import { useEffect, useLayoutEffect, useRef } from "react"
+import { useFrame, useThree } from "@react-three/fiber"
+import { OrbitControls, useAnimations, useGLTF } from "@react-three/drei"
 import { type OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import * as THREE from "three"
 import { getLabAudio, getLabScreenVideo } from "../lib/labMedia"
@@ -188,10 +188,12 @@ function MonitorVideo({ root }: { root: THREE.Object3D }) {
 }
 
 const POSTERS = new Set(["Cube.091", "Cube.092", "Cube.093"])
+const MONITOR_NODES = new Set(["Cube.002", "Cube"])
 const HIDE = new Set([
   "center mirror",
   "center mirror.002",
   "Camera_close",
+  "Sphere.002",
 ])
 const PENDANT = "Chocofur_free_34_light.001"
 
@@ -216,10 +218,18 @@ type Props = {
 function namedAncestor(object: THREE.Object3D | null) {
   let current = object
   while (current) {
-    if (POSTERS.has(current.name) || current.name === MONITOR) return current.name
+    if (POSTERS.has(current.name) || MONITOR_NODES.has(current.name)) return current.name
+    const mat = current instanceof THREE.Mesh
+      ? (Array.isArray(current.material) ? current.material[0] : current.material)
+      : null
+    if (typeof mat?.name === "string" && /^Mat_poster/i.test(mat.name)) return current.name || "poster"
     current = current.parent
   }
   return ""
+}
+
+function isMonitorHotspot(name: string) {
+  return MONITOR_NODES.has(name)
 }
 
 function applyWideLens(camera: THREE.Camera) {
@@ -289,12 +299,88 @@ function LabOrbit({ enabled }: { enabled: boolean }) {
   )
 }
 
+function LabHotspots({
+  root,
+  onPoster,
+  onMonitor,
+}: {
+  root: THREE.Object3D
+  onPoster: () => void
+  onMonitor: () => void
+}) {
+  const gl = useThree((state) => state.gl)
+  const camera = useThree((state) => state.camera)
+  const onPosterRef = useRef(onPoster)
+  const onMonitorRef = useRef(onMonitor)
+  onPosterRef.current = onPoster
+  onMonitorRef.current = onMonitor
+
+  useEffect(() => {
+    const targets: THREE.Mesh[] = []
+    root.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh)) return
+      if (!namedAncestor(obj)) return
+      targets.push(obj)
+    })
+
+    const raycaster = new THREE.Raycaster()
+    const pointer = new THREE.Vector2()
+    let downX = 0
+    let downY = 0
+
+    const toNdc = (event: PointerEvent) => {
+      const rect = gl.domElement.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return false
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+      return true
+    }
+
+    const hitName = () => {
+      raycaster.setFromCamera(pointer, camera)
+      const hits = raycaster.intersectObjects(targets, false)
+      return hits.length ? namedAncestor(hits[0].object) : ""
+    }
+
+    const onDown = (event: PointerEvent) => {
+      downX = event.clientX
+      downY = event.clientY
+    }
+
+    const onUp = (event: PointerEvent) => {
+      if (Math.hypot(event.clientX - downX, event.clientY - downY) > 8) return
+      if (!toNdc(event)) return
+      const name = hitName()
+      if (!name) return
+      event.preventDefault()
+      if (isMonitorHotspot(name)) onMonitorRef.current()
+      else onPosterRef.current()
+    }
+
+    const onMove = (event: PointerEvent) => {
+      if (!toNdc(event)) return
+      gl.domElement.style.cursor = hitName() ? "pointer" : "default"
+    }
+
+    const el = gl.domElement
+    el.addEventListener("pointerdown", onDown)
+    el.addEventListener("pointerup", onUp)
+    el.addEventListener("pointermove", onMove)
+    return () => {
+      el.removeEventListener("pointerdown", onDown)
+      el.removeEventListener("pointerup", onUp)
+      el.removeEventListener("pointermove", onMove)
+      el.style.cursor = ""
+    }
+  }, [root, gl, camera])
+
+  return null
+}
+
 export function LabScene({ labMode, onPoster, onMonitor }: Props) {
   const { scene, animations } = useGLTF(MODEL, DRACO_PATH)
   const root = scene
   const { actions } = useAnimations(animations, root)
-  const [hovered, setHovered] = useState(false)
-  useCursor(hovered && !labMode)
 
   useLayoutEffect(() => {
     root.traverse((obj) => {
@@ -338,6 +424,10 @@ export function LabScene({ labMode, onPoster, onMonitor }: Props) {
         }
         const matName = Array.isArray(obj.material) ? obj.material[0]?.name : obj.material?.name
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+        if (/glass/i.test(obj.name) || (typeof matName === "string" && /glass/i.test(matName))) {
+          obj.raycast = () => {}
+        }
+
         const keepAlive =
           obj instanceof THREE.SkinnedMesh ||
           obj.name === "Bruno" ||
@@ -401,22 +491,8 @@ export function LabScene({ labMode, onPoster, onMonitor }: Props) {
 
   return (
     <>
-      <primitive
-        object={root}
-        onPointerOver={(event: ThreeEvent<PointerEvent>) => {
-          if (!namedAncestor(event.object)) return
-          event.stopPropagation()
-          setHovered(true)
-        }}
-        onPointerOut={() => setHovered(false)}
-        onClick={(event: ThreeEvent<MouseEvent>) => {
-          const name = namedAncestor(event.object)
-          if (!name) return
-          event.stopPropagation()
-          if (name === MONITOR) onMonitor()
-          else onPoster()
-        }}
-      />
+      <primitive object={root} />
+      <LabHotspots root={root} onPoster={onPoster} onMonitor={onMonitor} />
       <MonitorVideo root={root} />
       <LabAmbience labMode={labMode} />
       <WideRoomCamera labMode={labMode} />
